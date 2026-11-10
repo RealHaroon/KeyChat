@@ -8,7 +8,7 @@ class ChatInput extends StatefulWidget {
     required this.onStop,
     required this.isGenerating,
     this.enabled = true,
-    this.hintText = 'Message',
+    this.hintText = 'Message KeyChat',
   });
 
   final ValueChanged<String> onSend;
@@ -28,6 +28,8 @@ class _ChatInputState extends State<ChatInput> {
   @override
   void initState() {
     super.initState();
+    // Only rebuild when the text goes from empty <-> not empty,
+    // not on every key press.
     _controller.addListener(() {
       final hasText = _controller.text.trim().isNotEmpty;
       if (hasText != _hasText) setState(() => _hasText = hasText);
@@ -56,50 +58,64 @@ class _ChatInputState extends State<ChatInput> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                enabled: widget.enabled,
-                minLines: 1,
-                maxLines: 6,
-                textCapitalization: TextCapitalization.sentences,
-                keyboardType: TextInputType.multiline,
-                decoration: InputDecoration(
-                  hintText: widget.hintText,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.6),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(4, 4, 6, 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  enabled: widget.enabled,
+                  minLines: 1,
+                  maxLines: 6,
+                  textCapitalization: TextCapitalization.sentences,
+                  keyboardType: TextInputType.multiline,
+                  decoration: InputDecoration(
+                    hintText: widget.hintText,
+                    filled: false,
+                    border: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            // While a reply streams, the Send button becomes a Stop button.
-            widget.isGenerating
-                ? IconButton.filledTonal(
-                    tooltip: 'Stop generating',
-                    onPressed: widget.onStop,
-                    icon: const Icon(Icons.stop_rounded),
-                    iconSize: 28,
-                  )
-                : IconButton.filled(
-                    tooltip: 'Send',
-                    onPressed: widget.enabled && _hasText ? _send : null,
-                    icon: const Icon(Icons.arrow_upward_rounded),
-                    iconSize: 28,
-                    style: IconButton.styleFrom(
-                      disabledBackgroundColor: colors.surfaceContainerHighest,
-                    ),
-                  ),
-          ],
+              // Smoothly swaps between the Send and Stop buttons.
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
+                child: widget.isGenerating
+                    ? IconButton.filled(
+                        key: const ValueKey('stop'),
+                        tooltip: 'Stop generating',
+                        onPressed: widget.onStop,
+                        icon: const Icon(Icons.stop_rounded),
+                      )
+                    : IconButton.filled(
+                        key: const ValueKey('send'),
+                        tooltip: 'Send',
+                        onPressed: widget.enabled && _hasText ? _send : null,
+                        icon: const Icon(Icons.arrow_upward_rounded),
+                        style: IconButton.styleFrom(
+                          disabledBackgroundColor:
+                              colors.surfaceContainerHighest,
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

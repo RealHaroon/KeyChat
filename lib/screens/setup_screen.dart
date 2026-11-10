@@ -7,6 +7,7 @@ import '../models/ai_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/api_exception.dart';
 import '../services/llm_api_service.dart';
+import '../widgets/keychat_logo.dart';
 
 /// Choose a provider, paste an API key, and "Test & Save" it.
 ///
@@ -105,13 +106,15 @@ class _SetupScreenState extends State<SetupScreen> {
             padding: const EdgeInsets.all(20),
             children: [
               if (widget.isOnboarding) ...[
-                const SizedBox(height: 24),
-                Icon(Icons.key_rounded, size: 56, color: colors.primary),
-                const SizedBox(height: 16),
+                const SizedBox(height: 32),
+                const Center(child: KeyChatLogo(size: 72)),
+                const SizedBox(height: 20),
                 Text(
                   'Welcome to KeyChat',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineMedium,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -227,7 +230,7 @@ class _ProviderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Card(
-      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
       color: selected ? colors.primaryContainer : colors.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),

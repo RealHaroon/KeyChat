@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/ai_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/keychat_logo.dart';
 import 'setup_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -107,113 +108,158 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
     final colors = Theme.of(context).colorScheme;
+    final provider = settings.provider;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          24 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
-          const _SectionHeader('Provider'),
-          for (final provider in AiProvider.all)
-            ListTile(
-              leading: Icon(
-                provider.id == settings.provider.id
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: provider.id == settings.provider.id
-                    ? colors.primary
-                    : null,
+          _Section(
+            title: 'Provider',
+            children: [
+              for (final p in AiProvider.all)
+                ListTile(
+                  leading: Icon(
+                    p.id == provider.id
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: p.id == provider.id ? colors.primary : null,
+                  ),
+                  title: Text(p.name),
+                  subtitle: Text(p.description),
+                  onTap: () => _switchProvider(context, p),
+                ),
+            ],
+          ),
+          _Section(
+            title: 'API key',
+            children: [
+              ListTile(
+                leading: const Icon(Icons.vpn_key_outlined),
+                title: Text('Change ${provider.name} key'),
+                subtitle: const Text('Stored encrypted on this device'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _openSetup(context, provider),
               ),
-              title: Text(provider.name),
-              subtitle: Text(provider.description),
-              onTap: () => _switchProvider(context, provider),
-            ),
-          const Divider(),
-          const _SectionHeader('API key'),
-          ListTile(
-            leading: const Icon(Icons.vpn_key_outlined),
-            title: Text('Change ${settings.provider.name} key'),
-            subtitle: const Text('Stored encrypted on this device'),
-            onTap: () => _openSetup(context, settings.provider),
-          ),
-          ListTile(
-            leading: Icon(Icons.delete_outline, color: colors.error),
-            title: Text(
-              'Delete ${settings.provider.name} key',
-              style: TextStyle(color: colors.error),
-            ),
-            onTap: () => _deleteKey(context),
-          ),
-          const Divider(),
-          const _SectionHeader('Chat'),
-          ListTile(
-            leading: const Icon(Icons.psychology_outlined),
-            title: const Text('System prompt'),
-            subtitle: Text(
-              settings.systemPrompt.isEmpty ? 'None' : settings.systemPrompt,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            onTap: () => _editSystemPrompt(context),
-          ),
-          ListTile(
-            leading: Icon(Icons.delete_sweep_outlined, color: colors.error),
-            title: Text(
-              'Clear all chats',
-              style: TextStyle(color: colors.error),
-            ),
-            onTap: () => _clearChats(context),
-          ),
-          const Divider(),
-          const _SectionHeader('Appearance'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<ThemeMode>(
-              segments: const [
-                ButtonSegment(
-                  value: ThemeMode.system,
-                  icon: Icon(Icons.brightness_auto),
-                  label: Text('System'),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline_rounded,
+                  color: colors.error,
                 ),
-                ButtonSegment(
-                  value: ThemeMode.light,
-                  icon: Icon(Icons.light_mode),
-                  label: Text('Light'),
+                title: Text(
+                  'Delete ${provider.name} key',
+                  style: TextStyle(color: colors.error),
                 ),
-                ButtonSegment(
-                  value: ThemeMode.dark,
-                  icon: Icon(Icons.dark_mode),
-                  label: Text('Dark'),
-                ),
-              ],
-              selected: {settings.themeMode},
-              onSelectionChanged: (selection) =>
-                  settings.setThemeMode(selection.first),
-            ),
+                onTap: () => _deleteKey(context),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          _Section(
+            title: 'Chat',
+            children: [
+              ListTile(
+                leading: const Icon(Icons.psychology_outlined),
+                title: const Text('System prompt'),
+                subtitle: Text(
+                  settings.systemPrompt.isEmpty
+                      ? 'None'
+                      : settings.systemPrompt,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _editSystemPrompt(context),
+              ),
+              ListTile(
+                leading: Icon(Icons.delete_sweep_outlined, color: colors.error),
+                title: Text(
+                  'Clear all chats',
+                  style: TextStyle(color: colors.error),
+                ),
+                onTap: () => _clearChats(context),
+              ),
+            ],
+          ),
+          _Section(
+            title: 'Appearance',
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: SegmentedButton<ThemeMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: Icon(Icons.brightness_auto_outlined),
+                      label: Text('System'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: Icon(Icons.light_mode_outlined),
+                      label: Text('Light'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: Icon(Icons.dark_mode_outlined),
+                      label: Text('Dark'),
+                    ),
+                  ],
+                  selected: {settings.themeMode},
+                  onSelectionChanged: (selection) =>
+                      settings.setThemeMode(selection.first),
+                ),
+              ),
+            ],
+          ),
+          const _Section(
+            title: 'About',
+            children: [
+              ListTile(
+                leading: KeyChatLogo(size: 32),
+                title: Text('KeyChat'),
+                subtitle: Text('Bring your own key AI chat · made by Haroon'),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
+/// A titled group of settings drawn as one rounded card.
+class _Section extends StatelessWidget {
+  const _Section({required this.title, required this.children});
 
   final String title;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(
-        title,
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: theme.colorScheme.primary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 20, 12, 8),
+          child: Text(
+            title,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
-      ),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: children),
+        ),
+      ],
     );
   }
 }

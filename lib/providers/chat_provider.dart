@@ -30,6 +30,12 @@ class ChatProvider extends ChangeNotifier {
   StreamSubscription<String>? _subscription;
   ChatMessage? _streamingMessage;
 
+  /// Fast models send 100+ small chunks per second. Redrawing the screen for
+  /// every chunk wastes battery, so streamed text is shown at most once per
+  /// [_uiUpdateInterval] (still smooth: about 20 updates per second).
+  static const _uiUpdateInterval = Duration(milliseconds: 50);
+  Timer? _uiUpdateTimer;
+
   Conversation get current => _current;
   List<ChatMessage> get messages => _current.messages;
   bool get isGenerating => _subscription != null;
@@ -93,13 +99,14 @@ class ChatProvider extends ChangeNotifier {
     );
   }
 
-  /// Removes the last error message and asks for a reply again.
-  Future<void> retry({
+  /// Asks for a new answer to the last user message. Used by "Retry" on
+  /// errors and "Regenerate" on normal replies: the old reply is removed.
+  Future<void> regenerate({
     required AiProvider provider,
     required String model,
     required String systemPrompt,
   }) async {
-    if (isGenerating || messages.isEmpty || !messages.last.isError) return;
+    if (isGenerating || messages.isEmpty || messages.last.isUser) return;
     messages.removeLast();
     notifyListeners();
     await _generateReply(
@@ -144,7 +151,10 @@ class ChatProvider extends ChangeNotifier {
     _subscription = stream.listen(
       (chunk) {
         reply.content += chunk;
-        notifyListeners();
+        _uiUpdateTimer ??= Timer(_uiUpdateInterval, () {
+          _uiUpdateTimer = null;
+          notifyListeners();
+        });
       },
       onError: (Object error) {
         _finishGeneration();
@@ -167,6 +177,8 @@ class ChatProvider extends ChangeNotifier {
     final reply = _streamingMessage;
     // Drop the placeholder if nothing arrived (e.g. an error or instant stop).
     if (reply != null && reply.content.isEmpty) messages.remove(reply);
+    _uiUpdateTimer?.cancel();
+    _uiUpdateTimer = null;
     _subscription = null;
     _streamingMessage = null;
     saveCurrent();
@@ -204,6 +216,7 @@ class ChatProvider extends ChangeNotifier {
   @override
   void dispose() {
     _subscription?.cancel();
+    _uiUpdateTimer?.cancel();
     super.dispose();
   }
 }

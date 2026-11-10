@@ -5,12 +5,12 @@ import '../providers/chat_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/chat_input.dart';
 import '../widgets/empty_chat_view.dart';
+import '../widgets/history_drawer.dart';
 import '../widgets/message_bubble.dart';
-import 'history_screen.dart';
 import 'model_picker_screen.dart';
 import 'settings_screen.dart';
 
-/// The main screen: message list + input box.
+/// The main screen: message list + input box, with chat history in a drawer.
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -23,16 +23,25 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _scrollController = ScrollController();
 
+  /// Whether to show the "jump to latest" button. A ValueNotifier means only
+  /// that button rebuilds while scrolling, not the whole screen.
+  final _showScrollButton = ValueNotifier(false);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(() {
+      // Reversed list: offset 0 is the newest message.
+      _showScrollButton.value = _scrollController.offset > 400;
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
+    _showScrollButton.dispose();
     super.dispose();
   }
 
@@ -60,11 +69,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollToBottom();
   }
 
-  void _retry() {
+  void _regenerate() {
     final settings = context.read<SettingsProvider>();
     final model = settings.selectedModel;
     if (model == null) return;
-    context.read<ChatProvider>().retry(
+    context.read<ChatProvider>().regenerate(
       provider: settings.provider,
       model: model,
       systemPrompt: settings.systemPrompt,
@@ -77,19 +86,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!_scrollController.hasClients) return;
     _scrollController.animateTo(
       0,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
     );
   }
 
   void _openModelPicker() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const ModelPickerScreen()));
-  }
-
-  void _openHistory() {
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const HistoryScreen()));
   }
 
   void _openSettings() {
@@ -102,16 +106,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final chat = context.watch<ChatProvider>();
     final settings = context.watch<SettingsProvider>();
     final messages = chat.messages;
+    final hasModel = settings.selectedModel != null;
 
     return Scaffold(
+      drawer: HistoryDrawer(onOpenSettings: _openSettings),
       appBar: AppBar(
-        titleSpacing: 4,
-        leading: IconButton(
-          tooltip: 'Chat history',
-          icon: const Icon(Icons.menu_rounded),
-          onPressed: _openHistory,
-        ),
-        title: _ModelTitle(
+        titleSpacing: 0,
+        // The default leading button opens the drawer.
+        title: _ModelPill(
           providerName: settings.provider.name,
           model: settings.selectedModel,
           onTap: _openModelPicker,
@@ -119,14 +121,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         actions: [
           IconButton(
             tooltip: 'New chat',
-            icon: const Icon(Icons.edit_square),
+            icon: const Icon(Icons.add_comment_outlined),
             onPressed: messages.isEmpty ? null : chat.newChat,
           ),
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: _openSettings,
-          ),
+          const SizedBox(width: 4),
         ],
       ),
       // Scaffold resizes the body when the keyboard opens, which keeps the
@@ -140,39 +138,63 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Expanded(
               child: messages.isEmpty
                   ? EmptyChatView(
-                      hasModel: settings.selectedModel != null,
+                      hasModel: hasModel,
                       onPickModel: _openModelPicker,
                       onSuggestion: _send,
                     )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      reverse: true,
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        // Reversed list: index 0 is the newest message.
-                        final message = messages[messages.length - 1 - index];
-                        final isLast = index == 0;
-                        return MessageBubble(
-                          key: ObjectKey(message),
-                          message: message,
-                          isStreaming: chat.streamingMessage == message,
-                          onRetry: isLast && message.isError ? _retry : null,
-                        );
-                      },
+                  : Stack(
+                      children: [
+                        ListView.builder(
+                          controller: _scrollController,
+                          reverse: true,
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) {
+                            // Reversed list: index 0 is the newest message.
+                            final message =
+                                messages[messages.length - 1 - index];
+                            final canRegenerate =
+                                index == 0 &&
+                                !message.isUser &&
+                                !chat.isGenerating;
+                            return MessageBubble(
+                              key: ObjectKey(message),
+                              message: message,
+                              isStreaming: chat.streamingMessage == message,
+                              onRegenerate: canRegenerate ? _regenerate : null,
+                            );
+                          },
+                        ),
+                        Positioned(
+                          right: 0,
+                          left: 0,
+                          bottom: 8,
+                          child: Center(
+                            child: ValueListenableBuilder(
+                              valueListenable: _showScrollButton,
+                              builder: (context, show, _) => AnimatedScale(
+                                scale: show ? 1 : 0,
+                                duration: const Duration(milliseconds: 200),
+                                child: IconButton.filledTonal(
+                                  tooltip: 'Jump to latest',
+                                  onPressed: _scrollToBottom,
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
             ),
             ChatInput(
               isGenerating: chat.isGenerating,
-              enabled: settings.selectedModel != null,
-              hintText: settings.selectedModel == null
-                  ? 'Choose a model first'
-                  : 'Message',
+              enabled: hasModel,
+              hintText: hasModel ? 'Message KeyChat' : 'Choose a model first',
               onSend: _send,
               onStop: chat.stopGenerating,
             ),
@@ -183,9 +205,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 }
 
-/// AppBar title showing the provider and model. Tap to change the model.
-class _ModelTitle extends StatelessWidget {
-  const _ModelTitle({
+/// A rounded "pill" in the AppBar showing the current model.
+/// Tap it to choose a different model.
+class _ModelPill extends StatelessWidget {
+  const _ModelPill({
     required this.providerName,
     required this.model,
     required this.onTap,
@@ -195,39 +218,58 @@ class _ModelTitle extends StatelessWidget {
   final String? model;
   final VoidCallback onTap;
 
+  /// "meta-llama/llama-3.3-70b:free" -> "llama-3.3-70b:free" (shorter to read).
+  String get _shortModel => model!.split('/').last;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('KeyChat', style: theme.textTheme.titleMedium),
-            Row(
+    final colors = theme.colorScheme;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
-                  child: Text(
-                    model == null ? 'Choose a model' : '$providerName · $model',
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        model == null ? 'Choose a model' : _shortModel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        providerName,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.primary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(width: 2),
                 Icon(
-                  Icons.arrow_drop_down,
-                  size: 18,
-                  color: theme.colorScheme.primary,
+                  Icons.expand_more_rounded,
+                  size: 20,
+                  color: colors.onSurfaceVariant,
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

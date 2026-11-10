@@ -15,8 +15,12 @@ Code must stay clean, well-organized and easy to explain in a presentation.
   ApiException (friendly errors), SecureKeyStorage (flutter_secure_storage), SettingsStorage
   (shared_preferences), ChatStorage (Hive, conversations stored as JSON strings)
 - `lib/providers`: SettingsProvider, ChatProvider (Provider + ChangeNotifier, beginner-friendly)
-- `lib/screens`: setup, chat, model_picker, history, settings
-- `lib/widgets`: message_bubble (Markdown, long-press copy), chat_input (Send/Stop), typing_indicator, empty_chat_view
+- `lib/theme/app_theme.dart`: all colors/shapes (seed indigo + brand gradient)
+- `lib/screens`: setup, chat, model_picker, settings (history is a drawer, not a screen)
+- `lib/widgets`: message_bubble (user bubble / full-width AI reply / error card, Copy + Regenerate),
+  code_block (custom `pre` builder with Copy), history_drawer (grouped by date), keychat_logo,
+  chat_input (Send/Stop), typing_indicator, empty_chat_view
+- ChatProvider throttles streaming redraws to every 50 ms; keep that when touching streaming.
 - New OpenAI-compatible providers = one entry in `AiProvider.all`.
 
 ## Rules

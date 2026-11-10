@@ -10,27 +10,32 @@ Your key is stored encrypted on the device and sent only to the provider you cho
 - **Onboarding**: pick a provider, paste your key (there is a paste button), and tap **Test & Save**.
   The key is checked with a real API call before it is saved. Errors say what went wrong: invalid key,
   no internet, rate limit, timeout.
-- **Chat**: user bubbles on the right and AI bubbles on the left. AI replies render as **Markdown**
-  (code blocks, lists, bold, links).
+- **Chat**: user bubbles on the right; AI replies use the full width with the KeyChat logo, like
+  ChatGPT/Gemini. Replies render as **Markdown** (lists, bold, tables, links), and code blocks show
+  the language and a **Copy** button. Every reply has Copy, and the last one has **Regenerate**.
 - **Streaming**: replies appear word by word (Server-Sent Events). The Send button turns into a
   **Stop** button while a reply is streaming.
 - **Context**: the full conversation is sent with every request, so the bot remembers what was said.
 - **Model picker**: the list comes live from `GET /models` (no model names are hardcoded). It has a
-  search box, shows context size and *Free* badges (OpenRouter), and remembers the last model for each provider.
-- **Chat history**: chats are saved on the device. Open, swipe-to-delete, or start a new chat.
-  The title is the first user message.
+  search box, a *Free only* filter, context size and *Free* badges (OpenRouter), and remembers the last model for each provider.
+- **Chat history**: a side drawer (menu button or swipe from the left) lists saved chats grouped
+  by date: Today, Yesterday, Previous 7 days... Tap to open, tap the bin to delete. The title is
+  the first user message.
 - **Settings**: switch provider, change or delete the API key, edit the system prompt, choose
   light/dark/system theme, and clear all chats.
 - **Mobile details**: portrait layout, safe areas (notch and gesture bar), input stays above the
   keyboard, tap outside or drag the list to hide the keyboard, auto-scroll to the newest message,
-  long-press a message to copy it, and the chat is saved when the app goes to the background.
+  a "jump to latest" button when scrolled up, long-press a message to copy it, and the chat is
+  saved when the app goes to the background.
 
 ## Folder structure
 
 ```
 lib/
 ├── main.dart                 # Creates services, loads saved data, starts the app
-├── app.dart                  # MaterialApp, Material 3 light/dark themes, first screen
+├── app.dart                  # MaterialApp, light/dark theme, first screen
+├── theme/
+│   └── app_theme.dart        # All colors, shapes and component styles in one place
 ├── models/                   # Plain data classes
 │   ├── ai_provider.dart      # Provider list (Groq, OpenRouter): base URL, headers
 │   ├── ai_model.dart         # A model from GET /models
@@ -49,10 +54,12 @@ lib/
 │   ├── setup_screen.dart     # Onboarding / change key
 │   ├── chat_screen.dart
 │   ├── model_picker_screen.dart
-│   ├── history_screen.dart
 │   └── settings_screen.dart
 └── widgets/
-    ├── message_bubble.dart   # Markdown bubble, long-press to copy
+    ├── message_bubble.dart   # User bubble / AI reply (Markdown) / error card
+    ├── code_block.dart       # Code block with language label + Copy button
+    ├── history_drawer.dart   # Side drawer: saved chats grouped by date
+    ├── keychat_logo.dart     # Gradient logo, also the AI's avatar
     ├── chat_input.dart       # Text field + Send/Stop button
     ├── typing_indicator.dart # Animated "..." while waiting
     └── empty_chat_view.dart  # Welcome screen + suggestions
@@ -70,6 +77,8 @@ lib/
 | **Streaming with SSE** | `stream: true` makes the server send `data: {...}` lines. `LlmApiService.streamChat` is an `async*` generator that yields each text piece. "Stop" cancels the stream subscription, which closes the HTTP connection. |
 | **flutter_markdown_plus** | The original `flutter_markdown` package was discontinued by the Flutter team. `flutter_markdown_plus` is the maintained fork with the same API. |
 | **Reversed ListView** | The newest message sits at offset 0, so the chat stays pinned to the bottom while text streams in. |
+| **Throttled streaming updates** | Fast models send 100+ tiny chunks per second. The text is added immediately, but the screen is redrawn at most every 50 ms (~20 fps), which looks just as smooth and saves battery. `RepaintBoundary` on each message means only the changing message is repainted. |
+| **One theme file** | `AppTheme` sets colors and shapes for buttons, cards, inputs and dialogs once, so screens stay short and consistent. |
 | **OpenRouter key check uses `/key`** | OpenRouter's `GET /models` is public and returns 200 even with a wrong key, so it can't validate keys. KeyChat uses `GET /key` for OpenRouter and `GET /models` for Groq (see `keyValidationPath`). The model picker still uses `GET /models` for both. |
 
 ## Get a free API key

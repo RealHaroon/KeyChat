@@ -19,6 +19,7 @@ class _ModelPickerScreenState extends State<ModelPickerScreen> {
   final _searchController = TextEditingController();
   List<AiModel> _models = [];
   String _query = '';
+  bool _freeOnly = false;
   bool _isLoading = true;
   String? _error;
 
@@ -55,12 +56,15 @@ class _ModelPickerScreenState extends State<ModelPickerScreen> {
     }
   }
 
+  bool get _hasFreeModels => _models.any((m) => m.isFree);
+
   List<AiModel> get _filteredModels {
-    if (_query.isEmpty) return _models;
     final q = _query.toLowerCase();
     return _models
+        .where((m) => !_freeOnly || m.isFree)
         .where(
           (m) =>
+              q.isEmpty ||
               m.id.toLowerCase().contains(q) ||
               m.name.toLowerCase().contains(q),
         )
@@ -103,6 +107,25 @@ class _ModelPickerScreenState extends State<ModelPickerScreen> {
                 ),
               ),
             ),
+            // Only useful for providers that mix free and paid models.
+            if (!_isLoading && _hasFreeModels)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Row(
+                  children: [
+                    FilterChip(
+                      label: const Text('Free only'),
+                      selected: _freeOnly,
+                      onSelected: (value) => setState(() => _freeOnly = value),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${_filteredModels.length} models',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ],
+                ),
+              ),
             Expanded(child: _buildBody(settings.selectedModel)),
           ],
         ),
@@ -131,7 +154,9 @@ class _ModelPickerScreenState extends State<ModelPickerScreen> {
     if (models.isEmpty) {
       return _MessageView(
         icon: Icons.search_off_rounded,
-        message: 'No models match "$_query".',
+        message: _query.isEmpty
+            ? 'No models found.'
+            : 'No models match "$_query".',
       );
     }
 
