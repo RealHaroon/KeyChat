@@ -15,13 +15,25 @@ class SettingsProvider extends ChangeNotifier {
   final SettingsStorage _storage;
   final SecureKeyStorage _keyStorage;
 
+  /// The user-editable part of the instructions (tone and style).
+  /// Facts about KeyChat and its creator live in AppInfo.identityPrompt,
+  /// which is always sent, so they can't be lost by editing this.
   static const defaultSystemPrompt =
-      'You are KeyChat, a helpful and friendly AI assistant. '
-      'KeyChat is an app created by Haroon. When asked who you are or who '
-      'created you, say you are KeyChat, made by Haroon. If asked about the '
-      'underlying AI model, explain that KeyChat lets the user pick a model '
-      'from a provider such as Groq or OpenRouter. '
+      'Be helpful, friendly and concise. '
       'Answer clearly and use Markdown (lists, bold, code blocks) when it helps.';
+
+  /// Older versions saved the identity text as the default prompt. Users who
+  /// never changed it are moved to the new default automatically.
+  static const _oldDefaultPrompts = [
+    'You are KeyChat, a helpful and friendly AI assistant. '
+        'Answer clearly and use Markdown (lists, bold, code blocks) when it helps.',
+    'You are KeyChat, a helpful and friendly AI assistant. '
+        'KeyChat is an app created by Haroon. When asked who you are or who '
+        'created you, say you are KeyChat, made by Haroon. If asked about the '
+        'underlying AI model, explain that KeyChat lets the user pick a model '
+        'from a provider such as Groq or OpenRouter. '
+        'Answer clearly and use Markdown (lists, bold, code blocks) when it helps.',
+  ];
 
   AiProvider _provider = AiProvider.all.first;
   ThemeMode _themeMode = ThemeMode.system;
@@ -39,7 +51,10 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> load() async {
     _provider = AiProvider.byId(_storage.providerId);
     _themeMode = _storage.themeMode;
-    _systemPrompt = _storage.systemPrompt ?? defaultSystemPrompt;
+    final saved = _storage.systemPrompt;
+    _systemPrompt = saved == null || _oldDefaultPrompts.contains(saved)
+        ? defaultSystemPrompt
+        : saved;
     _selectedModel = _storage.modelFor(_provider.id);
     _hasApiKey = await _keyStorage.hasKey(_provider.id);
     notifyListeners();

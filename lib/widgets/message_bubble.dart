@@ -15,13 +15,15 @@ import 'typing_indicator.dart';
 ///   Copy / Regenerate buttons underneath (like ChatGPT or Gemini).
 /// - Errors: a red card with a Retry button.
 ///
-/// Long-press any message to copy it.
+/// Long-press an AI reply to copy it. Long-press your own message to
+/// copy or edit it.
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
     required this.message,
     this.isStreaming = false,
     this.onRegenerate,
+    this.onEdit,
   });
 
   final ChatMessage message;
@@ -31,6 +33,9 @@ class MessageBubble extends StatelessWidget {
 
   /// Only set on the last reply: shows "Regenerate" (or "Retry" on errors).
   final VoidCallback? onRegenerate;
+
+  /// Set on user messages: shows "Edit" in the long-press menu.
+  final VoidCallback? onEdit;
 
   /// Shared between all bubbles; creating it once avoids extra work.
   static final _markdownBuilders = {'pre': CodeBlockBuilder()};
@@ -47,6 +52,40 @@ class MessageBubble extends StatelessWidget {
           duration: Duration(seconds: 1),
         ),
       );
+  }
+
+  /// Bottom menu for the user's own messages.
+  void _showUserMenu(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.copy_rounded),
+              title: const Text('Copy'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _copy(context);
+              },
+            ),
+            if (onEdit != null)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Edit message'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  onEdit!();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -87,7 +126,7 @@ class MessageBubble extends StatelessWidget {
           borderRadius: radius,
           child: InkWell(
             borderRadius: radius,
-            onLongPress: () => _copy(context),
+            onLongPress: () => _showUserMenu(context),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
               child: Text(

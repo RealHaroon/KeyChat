@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/chat_input.dart';
+import '../models/chat_message.dart';
+import '../widgets/edit_message_dialog.dart';
 import '../widgets/empty_chat_view.dart';
 import '../widgets/history_drawer.dart';
 import '../widgets/message_bubble.dart';
@@ -78,6 +80,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       model: model,
       systemPrompt: settings.systemPrompt,
     );
+  }
+
+  Future<void> _editMessage(ChatMessage message) async {
+    final newText = await EditMessageDialog.show(context, message.content);
+    if (newText == null || newText == message.content || !mounted) return;
+
+    final settings = context.read<SettingsProvider>();
+    final model = settings.selectedModel;
+    if (model == null) return;
+    context.read<ChatProvider>().editMessage(
+      message,
+      newText,
+      provider: settings.provider,
+      model: model,
+      systemPrompt: settings.systemPrompt,
+    );
+    _scrollToBottom();
   }
 
   /// The list is reversed (newest message at offset 0), so "bottom" is 0.
@@ -164,6 +183,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               message: message,
                               isStreaming: chat.streamingMessage == message,
                               onRegenerate: canRegenerate ? _regenerate : null,
+                              onEdit: message.isUser
+                                  ? () => _editMessage(message)
+                                  : null,
                             );
                           },
                         ),

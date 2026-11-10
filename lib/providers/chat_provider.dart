@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/ai_provider.dart';
+import '../models/app_info.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
 import '../services/api_exception.dart';
@@ -99,6 +100,30 @@ class ChatProvider extends ChangeNotifier {
     );
   }
 
+  /// Replaces a message the user already sent with [newText], deletes
+  /// everything after it, and asks for a fresh reply (like "Edit" in ChatGPT).
+  Future<void> editMessage(
+    ChatMessage message,
+    String newText, {
+    required AiProvider provider,
+    required String model,
+    required String systemPrompt,
+  }) async {
+    final index = messages.indexOf(message);
+    if (index == -1 || !message.isUser || newText.trim().isEmpty) return;
+
+    stopGenerating();
+    // Remove the old message and every message after it; sendMessage then
+    // adds the edited text as a new message and streams the answer.
+    messages.removeRange(index, messages.length);
+    await sendMessage(
+      newText,
+      provider: provider,
+      model: model,
+      systemPrompt: systemPrompt,
+    );
+  }
+
   /// Asks for a new answer to the last user message. Used by "Retry" on
   /// errors and "Regenerate" on normal replies: the old reply is removed.
   Future<void> regenerate({
@@ -129,9 +154,16 @@ class ChatProvider extends ChangeNotifier {
 
     // Send the FULL history so the model remembers the conversation.
     // Error messages are only for the user, so they are left out.
-    final history = <Map<String, String>>[
+    // The hidden instructions: who the AI is (always) + the user's own
+    // system prompt (if any), sent as one system message.
+    final instructions = [
+      AppInfo.identityPrompt(provider: provider, model: model),
       if (systemPrompt.isNotEmpty)
-        {'role': MessageRole.system.name, 'content': systemPrompt},
+        '## Instructions from the user\n$systemPrompt',
+    ].join('\n');
+
+    final history = <Map<String, String>>[
+      {'role': MessageRole.system.name, 'content': instructions},
       for (final m in messages)
         if (!m.isError) m.toApiJson(),
     ];

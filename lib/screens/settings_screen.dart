@@ -287,14 +287,28 @@ class _SystemPromptDialogState extends State<_SystemPromptDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('System prompt'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        minLines: 4,
-        maxLines: 8,
-        decoration: const InputDecoration(
-          hintText: 'Tell the AI how to behave…',
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            minLines: 4,
+            maxLines: 8,
+            decoration: const InputDecoration(
+              hintText: 'Tell the AI how to behave…',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'KeyChat always tells the AI what app it is in and who made it, '
+            'so you only need to describe tone and style here.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
       actions: [
         TextButton(

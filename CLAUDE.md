@@ -10,7 +10,9 @@ Code must stay clean, well-organized and easy to explain in a presentation.
 - Only use packages that support both Android and iOS.
 
 ## Architecture (see README.md for full details)
-- `lib/models`: AiProvider (provider list: Groq, OpenRouter), AiModel, ChatMessage, Conversation
+- `lib/models`: AiProvider (provider list: Groq, OpenRouter), AiModel, ChatMessage, Conversation,
+  AppInfo (identity prompt about KeyChat + creator Haroon, always sent before the user's system prompt;
+  only state facts the user confirmed, never invent personal details)
 - `lib/services`: LlmApiService (ONE service for all OpenAI-compatible APIs, SSE streaming),
   ApiException (friendly errors), SecureKeyStorage (flutter_secure_storage), SettingsStorage
   (shared_preferences), ChatStorage (Hive, conversations stored as JSON strings)
@@ -18,7 +20,7 @@ Code must stay clean, well-organized and easy to explain in a presentation.
 - `lib/theme/app_theme.dart`: all colors/shapes (seed indigo + brand gradient)
 - `lib/screens`: setup, chat, model_picker, settings (history is a drawer, not a screen)
 - `lib/widgets`: message_bubble (user bubble / full-width AI reply / error card, Copy + Regenerate),
-  code_block (custom `pre` builder with Copy), history_drawer (grouped by date), keychat_logo,
+  code_block (custom `pre` builder with Copy), edit_message_dialog, history_drawer (grouped by date), keychat_logo,
   chat_input (Send/Stop), typing_indicator, empty_chat_view
 - ChatProvider throttles streaming redraws to every 50 ms; keep that when touching streaming.
 - New OpenAI-compatible providers = one entry in `AiProvider.all`.

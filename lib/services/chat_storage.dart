@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 
 import '../models/conversation.dart';
@@ -24,6 +25,18 @@ class ChatStorage {
   /// Opens the Hive boxes. Call once at app start.
   static Future<ChatStorage> create() async {
     await Hive.initFlutter();
+    return _openBoxes();
+  }
+
+  /// Opens the boxes in a plain folder. Used by tests, which can't use the
+  /// phone's app directory.
+  @visibleForTesting
+  static Future<ChatStorage> createAt(String directory) async {
+    Hive.init(directory);
+    return _openBoxes();
+  }
+
+  static Future<ChatStorage> _openBoxes() async {
     final conversations = await Hive.openBox<String>('conversations');
     final appState = await Hive.openBox<String>('app_state');
     return ChatStorage._(conversations, appState);

@@ -13,6 +13,11 @@ Your key is stored encrypted on the device and sent only to the provider you cho
 - **Chat**: user bubbles on the right; AI replies use the full width with the KeyChat logo, like
   ChatGPT/Gemini. Replies render as **Markdown** (lists, bold, tables, links), and code blocks show
   the language and a **Copy** button. Every reply has Copy, and the last one has **Regenerate**.
+- **Edit messages**: long-press one of your messages → **Edit message**. The reply to it (and
+  anything after it) is replaced with a fresh answer.
+- **Knows who it is**: every chat starts with hidden instructions from `lib/models/app_info.dart`:
+  what KeyChat is, its features, that it was made by Haroon, and which model is currently running.
+  The user's own system prompt is added after it, so editing it never removes this.
 - **Streaming**: replies appear word by word (Server-Sent Events). The Send button turns into a
   **Stop** button while a reply is streaming.
 - **Context**: the full conversation is sent with every request, so the bot remembers what was said.
@@ -39,6 +44,7 @@ lib/
 ├── models/                   # Plain data classes
 │   ├── ai_provider.dart      # Provider list (Groq, OpenRouter): base URL, headers
 │   ├── ai_model.dart         # A model from GET /models
+│   ├── app_info.dart         # Facts about KeyChat + creator, sent to the AI with every chat
 │   ├── chat_message.dart     # One message (role + content)
 │   └── conversation.dart     # A saved chat (id, title, messages)
 ├── services/                 # Talking to the outside world (network + storage)
@@ -58,6 +64,7 @@ lib/
 └── widgets/
     ├── message_bubble.dart   # User bubble / AI reply (Markdown) / error card
     ├── code_block.dart       # Code block with language label + Copy button
+    ├── edit_message_dialog.dart # Edit a sent message
     ├── history_drawer.dart   # Side drawer: saved chats grouped by date
     ├── keychat_logo.dart     # Gradient logo, also the AI's avatar
     ├── chat_input.dart       # Text field + Send/Stop button
@@ -78,6 +85,7 @@ lib/
 | **flutter_markdown_plus** | The original `flutter_markdown` package was discontinued by the Flutter team. `flutter_markdown_plus` is the maintained fork with the same API. |
 | **Reversed ListView** | The newest message sits at offset 0, so the chat stays pinned to the bottom while text streams in. |
 | **Throttled streaming updates** | Fast models send 100+ tiny chunks per second. The text is added immediately, but the screen is redrawn at most every 50 ms (~20 fps), which looks just as smooth and saves battery. `RepaintBoundary` on each message means only the changing message is repainted. |
+| **Identity prompt separate from system prompt** | Facts about the app and creator (`AppInfo`) are always sent; the editable system prompt only controls tone. It also tells the model which model it runs on, so it answers honestly ("KeyChat, powered by X") instead of claiming to be a different product. |
 | **One theme file** | `AppTheme` sets colors and shapes for buttons, cards, inputs and dialogs once, so screens stay short and consistent. |
 | **OpenRouter key check uses `/key`** | OpenRouter's `GET /models` is public and returns 200 even with a wrong key, so it can't validate keys. KeyChat uses `GET /key` for OpenRouter and `GET /models` for Groq (see `keyValidationPath`). The model picker still uses `GET /models` for both. |
 
